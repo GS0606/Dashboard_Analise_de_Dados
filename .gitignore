@@ -1,0 +1,5 @@
+# ambientes virtuais
+venv/
+.venv/
+env/
+ENV/
