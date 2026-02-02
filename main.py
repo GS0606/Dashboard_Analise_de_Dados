@@ -1,5 +1,11 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import plotly.express as px
+import streamlit as st
+
+
 
 
 df = pd.read_csv("https://raw.githubusercontent.com/guilhermeonrails/data-jobs/refs/heads/main/salaries.csv")
@@ -61,9 +67,61 @@ df['remota'] = df['remota'].replace(traducao_remota)
 # print(df[df.isnull().any(axis=1)])  # Verifica se há alguma linha com valores nulos
 
 df_limpo = df.dropna()
-print(df_limpo.info())  # Exibe informações gerais sobre o DataFrame limpo
+# print(df_limpo.info())  # Exibe informações gerais sobre o DataFrame limpo
 # print(df_limpo.isnull().sum())  # Verifica valores nulos no DataFrame limpo
 
-df_limpo = df_limpo.assign(ano = df_limpo['ano'].astype('int64'))
-print(df_limpo.head(10))
-print(df_limpo.info())  # Exibe informações gerais sobre o DataFrame limpo após a conversão do tipo da coluna 'ano' para int64
+# df_limpo = df_limpo.assign(ano = df_limpo['ano'].astype('int64'))
+# print(df_limpo.head(10))
+# print(df_limpo.info())  # Exibe informações gerais sobre o DataFrame limpo após a conversão do tipo da coluna 'ano' para int64
+
+
+# df_limpo['senioridade'].value_counts().plot(kind='bar', title='Distribuição de Senioridade')
+# plt.show()
+
+
+# plt.figure(figsize=(10, 6))
+# sns.barplot(data=df_limpo, x='senioridade', y='salario_usd')
+# plt.title('Distribuição de Salário por Senioridade')
+# plt.xlabel('Senioridade')
+# plt.ylabel('Salário medio anual (USD)')
+# plt.show()
+
+# print(df_limpo.groupby('senioridade')['salario_usd'].mean().sort_values(ascending=False))
+orden = df_limpo.groupby('senioridade')['salario_usd'].mean().sort_values(ascending=False).index 
+
+# print(orden)
+
+# plt.figure(figsize=(10, 6))
+# sns.barplot(data=df_limpo, x='senioridade', y='salario_usd', order=orden)
+# plt.title('Distribuição de Salário por Senioridade')
+# plt.xlabel('Senioridade')
+# plt.ylabel('Salário medio anual (USD)')
+# plt.show()
+
+
+# plt.figure(figsize=(10, 6))
+# sns.histplot(data=df_limpo['salario_usd'], bins=30, kde=True)
+# plt.title('Distribuição de Salário por Senioridade')
+# plt.xlabel('Salario medio anual (USD)')
+# plt.ylabel('Frequência')
+# plt.show()
+
+    
+# senerioridade_media_salario = df_limpo.groupby('senioridade')['salario_usd'].mean().sort_values(ascending=False).reset_index()
+
+# fig = px.bar(senerioridade_media_salario, x='senioridade', y='salario_usd',
+#              title='Distribuição de Salário por Senioridade',
+#                 labels={'senioridade': 'Senioridade', 'salario_usd': 'Salário médio anual (USD)'})
+# fig.show()  
+
+
+remoto_contagem = df_limpo['remota'].value_counts().reset_index()
+remoto_contagem.columns = ['tipo_trabalho', 'quantidade']
+
+fig = px.pie(remoto_contagem,
+             names='tipo_trabalho',
+             values='quantidade',
+             title='Distribuição de Tipos de Trabalho (Remoto, Híbrido, Presencial)',
+                hole=0.4)
+fig.update_traces(textinfo='percent+label')
+fig.show()
