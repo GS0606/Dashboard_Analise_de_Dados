@@ -17,7 +17,9 @@ from common import (
     exibir_insights,
     exibir_graficos,
     exibir_tabela_dados,
-    gerar_insights
+    gerar_insights,
+    validar_dataframe,
+    formatar_moeda
 )
 
 
@@ -56,7 +58,7 @@ def main() -> None:
     )
     
     # Verificar se há dados filtrados
-    if df_filtrado.empty:
+    if not validar_dataframe(df_filtrado):
         st.warning("⚠️ Nenhum dado encontrado com os filtros selecionados. Por favor, ajuste os filtros.")
         return
     
@@ -87,9 +89,11 @@ def main() -> None:
         
         # Estatísticas descritivas
         st.subheader("📊 Estatísticas Descritivas")
-        if not df_filtrado.empty:
+        if validar_dataframe(df_filtrado):
             st.dataframe(
-                df_filtrado['salario_usd'].describe().apply(lambda x: f"${x:,.2f}" if isinstance(x, (int, float)) else x),
+                df_filtrado['salario_usd'].describe().apply(
+                    lambda x: formatar_moeda(x) if isinstance(x, (int, float)) else x
+                ),
                 use_container_width=True
             )
 

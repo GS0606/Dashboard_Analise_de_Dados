@@ -263,8 +263,7 @@ def calcular_metricas(dataframe: pd.DataFrame, dataframe_completo: pd.DataFrame)
             media_atual = dataframe[dataframe['ano'] == ano_atual]['salario_usd'].mean()
             media_anterior = dataframe[dataframe['ano'] == ano_anterior]['salario_usd'].mean()
             
-            if media_anterior > 0:
-                variacao = ((media_atual - media_anterior) / media_anterior) * 100
+            variacao = calcular_diferenca_percentual(media_atual, media_anterior)
     
     return {
         'salario_medio': salarios.mean(),
@@ -282,6 +281,131 @@ def calcular_metricas(dataframe: pd.DataFrame, dataframe_completo: pd.DataFrame)
 
 
 # ============================================================================
+# FUNÇÕES AUXILIARES REUTILIZÁVEIS
+# ============================================================================
+
+
+def validar_dataframe(dataframe: pd.DataFrame) -> bool:
+    """
+    Valida se o DataFrame não está vazio.
+    
+    Args:
+        dataframe: DataFrame a ser validado
+        
+    Returns:
+        True se o DataFrame não estiver vazio, False caso contrário
+    """
+    return not dataframe.empty
+
+
+def aplicar_layout_padrao(grafico, xaxis_title: str = None, yaxis_title: str = None, 
+                          showlegend: bool = True, **kwargs) -> None:
+    """
+    Aplica layout padrão aos gráficos Plotly.
+    
+    Args:
+        grafico: Objeto do gráfico Plotly
+        xaxis_title: Título do eixo X (opcional)
+        yaxis_title: Título do eixo Y (opcional)
+        showlegend: Se deve mostrar a legenda
+        **kwargs: Argumentos adicionais para update_layout
+    """
+    layout_config = {
+        'title_x': 0.1,
+        'showlegend': showlegend
+    }
+    
+    if xaxis_title:
+        layout_config['xaxis_title'] = xaxis_title
+    if yaxis_title:
+        layout_config['yaxis_title'] = yaxis_title
+    
+    layout_config.update(kwargs)
+    grafico.update_layout(**layout_config)
+
+
+def exibir_grafico_com_tratamento(grafico, mensagem_erro: str) -> None:
+    """
+    Exibe um gráfico com tratamento de erro padronizado.
+    
+    Args:
+        grafico: Gráfico Plotly ou None
+        mensagem_erro: Mensagem a exibir se o gráfico for None
+    """
+    if grafico:
+        st.plotly_chart(grafico, use_container_width=True)
+    else:
+        st.warning(mensagem_erro)
+
+
+def formatar_moeda(valor: float) -> str:
+    """
+    Formata um valor numérico como moeda em USD.
+    
+    Args:
+        valor: Valor numérico a ser formatado
+        
+    Returns:
+        String formatada como moeda
+    """
+    return f"${valor:,.0f}"
+
+
+def calcular_diferenca_percentual(valor_atual: float, valor_anterior: float) -> float:
+    """
+    Calcula a diferença percentual entre dois valores.
+    
+    Args:
+        valor_atual: Valor atual
+        valor_anterior: Valor anterior
+        
+    Returns:
+        Diferença percentual (0 se valor_anterior for 0)
+    """
+    if valor_anterior == 0:
+        return 0.0
+    return ((valor_atual - valor_anterior) / valor_anterior) * 100
+
+
+def criar_filtro_multiselect(label: str, opcoes: List, default: List = None) -> List:
+    """
+    Cria um filtro multiselect padronizado na sidebar.
+    
+    Args:
+        label: Label do filtro
+        opcoes: Lista de opções disponíveis
+        default: Valores padrão (se None, usa todas as opções)
+        
+    Returns:
+        Lista de valores selecionados
+    """
+    if default is None:
+        default = opcoes
+    return st.sidebar.multiselect(label, opcoes, default=default)
+
+
+def agrupar_e_calcular_media(dataframe: pd.DataFrame, coluna_agrupamento: str, 
+                            coluna_calculo: str = 'salario_usd') -> pd.DataFrame:
+    """
+    Agrupa dados e calcula média de forma padronizada.
+    
+    Args:
+        dataframe: DataFrame com os dados
+        coluna_agrupamento: Coluna para agrupar
+        coluna_calculo: Coluna para calcular a média
+        
+    Returns:
+        DataFrame agrupado com média calculada
+    """
+    return (
+        dataframe
+        .groupby(coluna_agrupamento)[coluna_calculo]
+        .mean()
+        .reset_index()
+    )
+
+
+# ============================================================================
 # FUNÇÕES DE VISUALIZAÇÃO
 # ============================================================================
 
@@ -296,7 +420,7 @@ def criar_grafico_top_cargos(dataframe: pd.DataFrame) -> Optional[px.bar]:
     Returns:
         Gráfico Plotly ou None se o DataFrame estiver vazio
     """
-    if dataframe.empty:
+    if not validar_dataframe(dataframe):
         return None
     
     top_cargos = (
@@ -316,8 +440,8 @@ def criar_grafico_top_cargos(dataframe: pd.DataFrame) -> Optional[px.bar]:
         title="Top 10 cargos por salário médio",
         labels={'salario_usd': 'Média salarial anual (USD)', 'cargo': 'Cargo'}
     )
-    grafico.update_layout(
-        title_x=0.1,
+    aplicar_layout_padrao(
+        grafico,
         xaxis_title='Média salarial anual (USD)',
         yaxis_title='',
         yaxis={'categoryorder': 'total ascending'}
@@ -336,7 +460,7 @@ def criar_grafico_distribuicao_salarios(dataframe: pd.DataFrame) -> Optional[px.
     Returns:
         Gráfico Plotly ou None se o DataFrame estiver vazio
     """
-    if dataframe.empty:
+    if not validar_dataframe(dataframe):
         return None
     
     grafico = px.histogram(
@@ -346,8 +470,8 @@ def criar_grafico_distribuicao_salarios(dataframe: pd.DataFrame) -> Optional[px.
         title="Distribuição de salários anuais",
         labels={'salario_usd': 'Faixa salarial (USD)', 'count': 'Frequência'}
     )
-    grafico.update_layout(
-        title_x=0.1,
+    aplicar_layout_padrao(
+        grafico,
         xaxis_title='Faixa salarial (USD)',
         yaxis_title='Frequência'
     )
@@ -365,7 +489,7 @@ def criar_grafico_tipos_trabalho(dataframe: pd.DataFrame) -> Optional[px.pie]:
     Returns:
         Gráfico Plotly ou None se o DataFrame estiver vazio
     """
-    if dataframe.empty:
+    if not validar_dataframe(dataframe):
         return None
     
     remoto_contagem = dataframe['remota'].value_counts().reset_index()
@@ -379,7 +503,7 @@ def criar_grafico_tipos_trabalho(dataframe: pd.DataFrame) -> Optional[px.pie]:
         hole=HOLE_PIZZA
     )
     grafico.update_traces(textinfo='percent+label')
-    grafico.update_layout(title_x=0.1)
+    aplicar_layout_padrao(grafico)
     
     return grafico
 
@@ -394,20 +518,15 @@ def criar_grafico_salario_por_pais(dataframe: pd.DataFrame) -> Optional[px.choro
     Returns:
         Gráfico Plotly ou None se o DataFrame estiver vazio ou não houver dados
     """
-    if dataframe.empty:
+    if not validar_dataframe(dataframe):
         return None
     
     df_data_scientist = dataframe[dataframe['cargo'] == CARGO_DATA_SCIENTIST]
     
-    if df_data_scientist.empty:
+    if not validar_dataframe(df_data_scientist):
         return None
     
-    media_por_pais = (
-        df_data_scientist
-        .groupby('residencia')['salario_usd']
-        .mean()
-        .reset_index()
-    )
+    media_por_pais = agrupar_e_calcular_media(df_data_scientist, 'residencia')
     
     grafico = px.choropleth(
         media_por_pais,
@@ -420,12 +539,30 @@ def criar_grafico_salario_por_pais(dataframe: pd.DataFrame) -> Optional[px.choro
             'residencia': 'País'
         }
     )
-    grafico.update_layout(
-        title_x=0.1,
-        coloraxis_colorbar_title='Salário médio (USD)'
-    )
+    aplicar_layout_padrao(grafico, coloraxis_colorbar_title='Salário médio (USD)')
     
     return grafico
+
+
+def ordenar_por_categoria(dataframe: pd.DataFrame, coluna: str, ordem: List) -> pd.DataFrame:
+    """
+    Ordena DataFrame por categoria em ordem específica.
+    
+    Args:
+        dataframe: DataFrame a ser ordenado
+        coluna: Nome da coluna categórica
+        ordem: Lista com a ordem desejada das categorias
+        
+    Returns:
+        DataFrame ordenado
+    """
+    df_ordenado = dataframe.copy()
+    df_ordenado[coluna] = pd.Categorical(
+        df_ordenado[coluna],
+        categories=ordem,
+        ordered=True
+    )
+    return df_ordenado.sort_values(coluna)
 
 
 def criar_grafico_boxplot_senioridade(dataframe: pd.DataFrame) -> Optional[px.box]:
@@ -438,18 +575,12 @@ def criar_grafico_boxplot_senioridade(dataframe: pd.DataFrame) -> Optional[px.bo
     Returns:
         Gráfico Plotly ou None se o DataFrame estiver vazio
     """
-    if dataframe.empty:
+    if not validar_dataframe(dataframe):
         return None
     
     # Ordenar senioridade de forma lógica
     ordem_senioridade = ['junior', 'Pleno', 'Senior', 'executivo']
-    dataframe_ordenado = dataframe.copy()
-    dataframe_ordenado['senioridade'] = pd.Categorical(
-        dataframe_ordenado['senioridade'],
-        categories=ordem_senioridade,
-        ordered=True
-    )
-    dataframe_ordenado = dataframe_ordenado.sort_values('senioridade')
+    dataframe_ordenado = ordenar_por_categoria(dataframe, 'senioridade', ordem_senioridade)
     
     grafico = px.box(
         dataframe_ordenado,
@@ -463,8 +594,8 @@ def criar_grafico_boxplot_senioridade(dataframe: pd.DataFrame) -> Optional[px.bo
         color='senioridade',
         color_discrete_sequence=px.colors.qualitative.Set2
     )
-    grafico.update_layout(
-        title_x=0.1,
+    aplicar_layout_padrao(
+        grafico,
         showlegend=False,
         xaxis_title='Nível de Senioridade',
         yaxis_title='Salário anual (USD)'
@@ -483,7 +614,7 @@ def criar_grafico_tendencia_temporal(dataframe: pd.DataFrame) -> Optional[px.lin
     Returns:
         Gráfico Plotly ou None se o DataFrame estiver vazio
     """
-    if dataframe.empty or len(dataframe['ano'].unique()) < 2:
+    if not validar_dataframe(dataframe) or len(dataframe['ano'].unique()) < 2:
         return None
     
     tendencia = (
@@ -506,8 +637,8 @@ def criar_grafico_tendencia_temporal(dataframe: pd.DataFrame) -> Optional[px.lin
         },
         markers=True
     )
-    grafico.update_layout(
-        title_x=0.1,
+    aplicar_layout_padrao(
+        grafico,
         xaxis_title='Ano',
         yaxis_title='Salário anual (USD)',
         legend=dict(
@@ -540,16 +671,11 @@ def criar_grafico_salario_por_tipo_trabalho(dataframe: pd.DataFrame) -> Optional
     Returns:
         Gráfico Plotly ou None se o DataFrame estiver vazio
     """
-    if dataframe.empty:
+    if not validar_dataframe(dataframe):
         return None
     
-    salario_por_tipo = (
-        dataframe
-        .groupby('remota')['salario_usd']
-        .mean()
-        .sort_values(ascending=False)
-        .reset_index()
-    )
+    salario_por_tipo = agrupar_e_calcular_media(dataframe, 'remota')
+    salario_por_tipo = salario_por_tipo.sort_values('salario_usd', ascending=False)
     salario_por_tipo.columns = ['tipo_trabalho', 'salario_medio']
     
     grafico = px.bar(
@@ -564,11 +690,11 @@ def criar_grafico_salario_por_tipo_trabalho(dataframe: pd.DataFrame) -> Optional
         color='salario_medio',
         color_continuous_scale='Blues'
     )
-    grafico.update_layout(
-        title_x=0.1,
+    aplicar_layout_padrao(
+        grafico,
+        showlegend=False,
         xaxis_title='Tipo de Trabalho',
-        yaxis_title='Salário médio anual (USD)',
-        showlegend=False
+        yaxis_title='Salário médio anual (USD)'
     )
     
     return grafico
@@ -625,7 +751,7 @@ def gerar_insights(dataframe: pd.DataFrame, metricas: Dict) -> List[str]:
         salario_remoto = dataframe[dataframe['remota'] == 'Remoto']['salario_usd'].mean()
         salario_presencial = dataframe[dataframe['remota'] == 'Presencial']['salario_usd'].mean()
         if salario_remoto > 0 and salario_presencial > 0:
-            diferenca = ((salario_remoto - salario_presencial) / salario_presencial) * 100
+            diferenca = calcular_diferenca_percentual(salario_remoto, salario_presencial)
             if abs(diferenca) > 5:
                 if diferenca > 0:
                     insights.append(
@@ -644,8 +770,10 @@ def gerar_insights(dataframe: pd.DataFrame, metricas: Dict) -> List[str]:
         if len(salario_por_senioridade) > 1:
             maior = salario_por_senioridade.index[0]
             menor = salario_por_senioridade.index[-1]
-            diferenca = ((salario_por_senioridade[maior] - salario_por_senioridade[menor]) / 
-                        salario_por_senioridade[menor]) * 100
+            diferenca = calcular_diferenca_percentual(
+                salario_por_senioridade[maior],
+                salario_por_senioridade[menor]
+            )
             insights.append(
                 f"🎯 **Gap de Senioridade**: Profissionais {maior} ganham em média "
                 f"{diferenca:.1f}% mais que profissionais {menor}."
@@ -674,39 +802,30 @@ def criar_barra_lateral_filtros(dataframe: pd.DataFrame) -> Dict:
     """
     st.sidebar.header("🔍 Filtros")
     
-    anos_disponiveis = sorted(dataframe['ano'].unique())
-    anos_selecionados = st.sidebar.multiselect(
+    anos_selecionados = criar_filtro_multiselect(
         "Ano",
-        anos_disponiveis,
-        default=anos_disponiveis
+        sorted(dataframe['ano'].unique())
     )
     
-    senioridades_disponiveis = sorted(dataframe['senioridade'].unique())
-    senioridades_selecionadas = st.sidebar.multiselect(
+    senioridades_selecionadas = criar_filtro_multiselect(
         "Senioridade",
-        senioridades_disponiveis,
-        default=senioridades_disponiveis
+        sorted(dataframe['senioridade'].unique())
     )
     
-    contratos_disponiveis = sorted(dataframe['contrato'].unique())
-    contratos_selecionados = st.sidebar.multiselect(
+    contratos_selecionados = criar_filtro_multiselect(
         "Tipo de Contrato",
-        contratos_disponiveis,
-        default=contratos_disponiveis
+        sorted(dataframe['contrato'].unique())
     )
     
-    tamanhos_disponiveis = sorted(dataframe['tamanho_empresa'].unique())
-    tamanhos_selecionados = st.sidebar.multiselect(
+    tamanhos_selecionados = criar_filtro_multiselect(
         "Tamanho da Empresa",
-        tamanhos_disponiveis,
-        default=tamanhos_disponiveis
+        sorted(dataframe['tamanho_empresa'].unique())
     )
     
     # Filtro opcional por cargo
-    cargos_disponiveis = sorted(dataframe['cargo'].unique())
     cargos_selecionados = st.sidebar.multiselect(
         "Cargo (opcional)",
-        cargos_disponiveis,
+        sorted(dataframe['cargo'].unique()),
         default=[]
     )
     
@@ -735,26 +854,25 @@ def exibir_metricas(metricas: Dict) -> None:
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
+        delta_mediana = f"Mediana: {formatar_moeda(metricas['salario_mediano'])}" if metricas['salario_mediano'] > 0 else None
         st.metric(
             "Salário Médio",
-            f"${metricas['salario_medio']:,.0f}",
-            delta=f"Mediana: ${metricas['salario_mediano']:,.0f}" if metricas['salario_mediano'] > 0 else None
+            formatar_moeda(metricas['salario_medio']),
+            delta=delta_mediana
         )
     
     with col2:
         variacao_texto = f"{metricas['variacao_ano_anterior']:+.1f}%"
         st.metric(
             "Salário Mediano",
-            f"${metricas['salario_mediano']:,.0f}",
+            formatar_moeda(metricas['salario_mediano']),
             delta=variacao_texto if metricas['variacao_ano_anterior'] != 0 else None
         )
     
     with col3:
-        st.metric(
-            "Faixa Salarial",
-            f"${metricas['salario_minimo']:,.0f} - ${metricas['salario_maximo']:,.0f}",
-            delta=f"P25-P75: ${metricas['percentil_25']:,.0f} - ${metricas['percentil_75']:,.0f}"
-        )
+        faixa = f"{formatar_moeda(metricas['salario_minimo'])} - {formatar_moeda(metricas['salario_maximo'])}"
+        delta_faixa = f"P25-P75: {formatar_moeda(metricas['percentil_25'])} - {formatar_moeda(metricas['percentil_75'])}"
+        st.metric("Faixa Salarial", faixa, delta=delta_faixa)
     
     with col4:
         st.metric(
@@ -767,13 +885,13 @@ def exibir_metricas(metricas: Dict) -> None:
     col5, col6, col7, col8 = st.columns(4)
     
     with col5:
-        st.metric("Desvio Padrão", f"${metricas['desvio_padrao']:,.0f}")
+        st.metric("Desvio Padrão", formatar_moeda(metricas['desvio_padrao']))
     
     with col6:
-        st.metric("Percentil 25", f"${metricas['percentil_25']:,.0f}")
+        st.metric("Percentil 25", formatar_moeda(metricas['percentil_25']))
     
     with col7:
-        st.metric("Percentil 75", f"${metricas['percentil_75']:,.0f}")
+        st.metric("Percentil 75", formatar_moeda(metricas['percentil_75']))
     
     with col8:
         cargo_freq = metricas['cargo_mais_frequente'][:30] + "..." if len(metricas['cargo_mais_frequente']) > 30 else metricas['cargo_mais_frequente']
@@ -806,35 +924,31 @@ def exibir_graficos(dataframe: pd.DataFrame, aba: str = "Visão Geral") -> None:
         col_graf1, col_graf2 = st.columns(2)
         
         with col_graf1:
-            grafico_cargos = criar_grafico_top_cargos(dataframe)
-            if grafico_cargos:
-                st.plotly_chart(grafico_cargos, use_container_width=True)
-            else:
-                st.warning("Nenhum dado para exibir no gráfico de cargos.")
+            exibir_grafico_com_tratamento(
+                criar_grafico_top_cargos(dataframe),
+                "Nenhum dado para exibir no gráfico de cargos."
+            )
         
         with col_graf2:
-            grafico_hist = criar_grafico_distribuicao_salarios(dataframe)
-            if grafico_hist:
-                st.plotly_chart(grafico_hist, use_container_width=True)
-            else:
-                st.warning("Nenhum dado para exibir no gráfico de distribuição.")
+            exibir_grafico_com_tratamento(
+                criar_grafico_distribuicao_salarios(dataframe),
+                "Nenhum dado para exibir no gráfico de distribuição."
+            )
         
         # Segunda linha de gráficos
         col_graf3, col_graf4 = st.columns(2)
         
         with col_graf3:
-            grafico_remoto = criar_grafico_tipos_trabalho(dataframe)
-            if grafico_remoto:
-                st.plotly_chart(grafico_remoto, use_container_width=True)
-            else:
-                st.warning("Nenhum dado para exibir no gráfico dos tipos de trabalho.")
+            exibir_grafico_com_tratamento(
+                criar_grafico_tipos_trabalho(dataframe),
+                "Nenhum dado para exibir no gráfico dos tipos de trabalho."
+            )
         
         with col_graf4:
-            grafico_paises = criar_grafico_salario_por_pais(dataframe)
-            if grafico_paises:
-                st.plotly_chart(grafico_paises, use_container_width=True)
-            else:
-                st.warning("Nenhum dado para exibir no gráfico de países.")
+            exibir_grafico_com_tratamento(
+                criar_grafico_salario_por_pais(dataframe),
+                "Nenhum dado para exibir no gráfico de países."
+            )
     
     elif aba == "Análises Comparativas":
         # Gráfico de tendência temporal
@@ -850,18 +964,16 @@ def exibir_graficos(dataframe: pd.DataFrame, aba: str = "Visão Geral") -> None:
         col1, col2 = st.columns(2)
         
         with col1:
-            grafico_box = criar_grafico_boxplot_senioridade(dataframe)
-            if grafico_box:
-                st.plotly_chart(grafico_box, use_container_width=True)
-            else:
-                st.warning("Nenhum dado para exibir no gráfico de box plot.")
+            exibir_grafico_com_tratamento(
+                criar_grafico_boxplot_senioridade(dataframe),
+                "Nenhum dado para exibir no gráfico de box plot."
+            )
         
         with col2:
-            grafico_tipo_trabalho = criar_grafico_salario_por_tipo_trabalho(dataframe)
-            if grafico_tipo_trabalho:
-                st.plotly_chart(grafico_tipo_trabalho, use_container_width=True)
-            else:
-                st.warning("Nenhum dado para exibir no gráfico de tipo de trabalho.")
+            exibir_grafico_com_tratamento(
+                criar_grafico_salario_por_tipo_trabalho(dataframe),
+                "Nenhum dado para exibir no gráfico de tipo de trabalho."
+            )
 
 
 def exibir_tabela_dados(dataframe: pd.DataFrame) -> None:
